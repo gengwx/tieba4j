@@ -1,3 +1,4 @@
+# 贴吧签到腾讯云函数专用版
 ## 代码是从https://github.com/ghosx/tieba 拿过来改成java的加了消息推送
 ## 准备工作
     1.从百度获取自己的 BDUSS
