@@ -27,6 +27,8 @@ public class AutoSign {
     public static final String TBS_URL = "http://tieba.baidu.com/dc/common/tbs";
     public static final String SIGN_URL = "http://c.tieba.baidu.com/c/c/forum/sign";
     public static final String PUSH_PLUS_URL = "http://www.pushplus.plus/send";
+    private static final String TG_PUSH_URL = "https://api.telegram.org/bot";
+
 
     public static final String FORUM_LIST = "forum_list";
     public static final String NON_GCONFORUM = "non-gconforum";
@@ -64,13 +66,9 @@ public class AutoSign {
 
     public void mainHandler(KeyValueClass kv) {
         String[] bdusses = System.getenv("BDUSS").split("#");
-        String token = System.getenv("PUSH_PLUS_TOKEN");
+
         if (bdusses.length == 0) {
             log.error("没有设置BDUSS");
-            return;
-        }
-        if (StrUtil.isBlank(token)) {
-            log.error("没有设置pushplus推送的token");
             return;
         }
         StringBuilder stringBuilder = new StringBuilder();
@@ -110,13 +108,8 @@ public class AutoSign {
                         .append("<hr/>")
                 ;
             }
-
+            pushMsg(stringBuilder.toString());
         }
-        JSONObject msg = new JSONObject();
-        msg.set("token", token);
-        msg.set("title", "百度贴吧自动签到");
-        msg.set("content", stringBuilder.toString());
-        String body = HttpRequest.post(PUSH_PLUS_URL).body(msg.toString()).execute().body();
     }
 
 
@@ -256,4 +249,27 @@ public class AutoSign {
         return jsonObject;
     }
 
+
+    private void pushMsg(String msg) {
+        String pushPlusToken = System.getenv("PUSH_PLUS_TOKEN");
+        String tgToken = System.getenv("TG_TOKEN");
+        String tgChatId = System.getenv("TG_CHAT_ID");
+        if (StrUtil.isNotBlank(pushPlusToken)) {
+            JSONObject msgObject = new JSONObject();
+            msgObject.set("token", pushPlusToken);
+            msgObject.set("title", "百度贴吧自动签到");
+            msgObject.set("content", msg);
+            String pushPlusBody = HttpRequest.post(PUSH_PLUS_URL).body(msgObject.toString()).execute().body();
+            log.info("推送加推送完毕，推送结果为{}", pushPlusBody);
+        }
+        if (StrUtil.isNotBlank(tgToken) && StrUtil.isNotBlank(tgChatId)) {
+            String body = "chat_id=" + tgChatId + "&text=贴吧签到任务简报\n" + msg;
+            Map<String, Object> map = new HashMap<>(2);
+            map.put("chat_id", tgChatId);
+            map.put("text", "贴吧签到任务简报\n" + msg);
+            String tgBody = HttpRequest.post(TG_PUSH_URL).form(map).execute().body();
+            log.info("TG推送完毕，推送结果为{}", tgBody);
+        }
+
+    }
 }
