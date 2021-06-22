@@ -27,6 +27,7 @@
             在 Telegram 中搜索 userinfobot，并给它发送一条消息，它会返回给你 chatid。)
     9.触发器设置选择自定义创建，触发方式选择定时触发，触发周期选择自定义触发周期，然后根据自己需要的时间设置。详情参考腾讯文档中的七域cron。
       https://cloud.tencent.com/document/product/583/9708#cron-.E8.A1.A8.E8.BE.BE.E5.BC.8F
-
+      以下为参考示例：每天6点执行一次。
+![image](https://user-images.githubusercontent.com/10470892/122933417-39550280-d3a1-11eb-9edd-8a89eb3317ef.png)
 ## 升级或者重新部署
    打开创建的函数-》函数管理-》函数代码-》上传新的jar-》部署-》测试
