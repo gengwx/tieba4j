@@ -15,9 +15,9 @@
     6.高级设置中设置 执行超时时间 设置到最大900秒
     7.账号设置：高级设置中设置 环境变量BDUSS 其中BDUSS支持多个需要在每个账号的BDUSS后边加上# 
       只有一个也最好加上，不加也行。
-    8.推送设置：高级设置中设置 黄精变量
+    8.推送设置：高级设置中设置 环境变量
         1.推送加+ 环境变量中设置 PUSH_PLUS_TOKEN
-        2.TG 环境变量中设置 TG_TOKEN与TG_CHAT_ID(注意：推送功能来自https://github.com/JunzhouLiu/BILIBILI-HELPER#telegram-订阅执行结果
+        2.TG（TG推送必须要用国外服务器：香港） 环境变量中设置 TG_TOKEN与TG_CHAT_ID(注意：推送功能来自https://github.com/JunzhouLiu/BILIBILI-HELPER#telegram-订阅执行结果
             获取方式：在 Telegram 中添加 BotFather 这个账号，然后依次发送/start /newbot 按照提示即可创建一个新的机器人。记下来给你生成的 token。
             搜索刚刚创建的机器人的名字，并给它发送一条消息。
             特别注意：需要先与机器人之间创建会话，机器人才能下发消息，否则机器人无法主动发送消息，切记！

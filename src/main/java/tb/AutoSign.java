@@ -263,11 +263,10 @@ public class AutoSign {
             log.info("推送加推送完毕，推送结果为{}", pushPlusBody);
         }
         if (StrUtil.isNotBlank(tgToken) && StrUtil.isNotBlank(tgChatId)) {
-            String body = "chat_id=" + tgChatId + "&text=贴吧签到任务简报\n" + msg;
             Map<String, Object> map = new HashMap<>(2);
             map.put("chat_id", tgChatId);
             map.put("text", "贴吧签到任务简报\n" + msg);
-            String tgBody = HttpRequest.post(TG_PUSH_URL).form(map).execute().body();
+            String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
             log.info("TG推送完毕，推送结果为{}", tgBody);
         }
 
