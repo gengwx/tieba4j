@@ -162,12 +162,24 @@ public class AutoSign {
             JSONArray gcoJsonArray = new JSONArray();
             List<JSONObject> finalData = new ArrayList<>();
             if (body.containsKey(FORUM_LIST)) {
-                JSONObject forumJson = body.getJSONObject(FORUM_LIST);
-                if (forumJson.containsKey(NON_GCONFORUM)) {
-                    nonJsonArray = forumJson.getJSONArray(NON_GCONFORUM);
+                JSONObject forumJson = null;
+                try {
+                    forumJson = body.getJSONObject(FORUM_LIST);
+                } catch (ClassCastException e) {
+                    JSONArray testArray = body.getJSONArray(FORUM_LIST);
+                    if (testArray.size() == 0) {
+                        log.info("似乎已经到底了");
+                    } else {
+                        log.error("关注贴吧似乎有问题" + testArray.toString());
+                    }
                 }
-                if (forumJson.containsKey(GCONFORUM)) {
-                    gcoJsonArray = forumJson.getJSONArray(GCONFORUM);
+                if (forumJson != null) {
+                    if (forumJson.containsKey(NON_GCONFORUM)) {
+                        nonJsonArray = forumJson.getJSONArray(NON_GCONFORUM);
+                    }
+                    if (forumJson.containsKey(GCONFORUM)) {
+                        gcoJsonArray = forumJson.getJSONArray(GCONFORUM);
+                    }
                 }
             }
             if (body.containsKey(HAS_MORE) && body.getStr(HAS_MORE).equals("1")) {
