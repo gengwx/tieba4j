@@ -47,6 +47,7 @@ public class AutoSign {
     private static final String HAS_MORE = "has_more";
 
 
+
     /**
      * 已签到
      */
@@ -90,6 +91,9 @@ public class AutoSign {
                     sb.append(jsonObject.getStr("name")).append("、");
                 } else if (signJson.getStr("error_code").equals(SIGNED)) {
                     signedCount += 1;
+                } else {
+                    errorCount += 1;
+                    sb.append(jsonObject.getStr("name")).append("、");
                 }
             }
 
@@ -108,7 +112,7 @@ public class AutoSign {
                         .append("<hr/>")
                 ;
             }
-            pushMsg(stringBuilder.toString());
+            pushMsg(stringBuilder.toString(),errorCount);
         }
     }
 
@@ -250,24 +254,50 @@ public class AutoSign {
     }
 
 
-    private void pushMsg(String msg) {
+    private void pushMsg(String msg,int errorCount) {
+        String y = "Y";
         String pushPlusToken = System.getenv("PUSH_PLUS_TOKEN");
         String tgToken = System.getenv("TG_TOKEN");
         String tgChatId = System.getenv("TG_CHAT_ID");
+        String errorSend = System.getenv("ERROR_SEND");
         if (StrUtil.isNotBlank(pushPlusToken)) {
             JSONObject msgObject = new JSONObject();
             msgObject.set("token", pushPlusToken);
             msgObject.set("title", "百度贴吧自动签到");
             msgObject.set("content", msg);
-            String pushPlusBody = HttpRequest.post(PUSH_PLUS_URL).body(msgObject.toString()).execute().body();
-            log.info("推送加推送完毕，推送结果为{}", pushPlusBody);
+            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(y)) {
+                log.info("已开启errorSend开关，将进行错误识别。");
+                if (errorCount > 0) {
+                    log.info("已出现错误，本次将进行推送");
+                    String pushPlusBody = HttpRequest.post(PUSH_PLUS_URL).body(msgObject.toString()).execute().body();
+                    log.info("推送加推送完毕，推送结果为{}", pushPlusBody);
+                } else {
+                    log.info("未出现错误，本次不进行推送");
+                }
+            } else {
+                log.info("未开启errorSend开关，不进行错误识别。");
+                String pushPlusBody = HttpRequest.post(PUSH_PLUS_URL).body(msgObject.toString()).execute().body();
+                log.info("推送加推送完毕，推送结果为{}", pushPlusBody);
+            }
         }
         if (StrUtil.isNotBlank(tgToken) && StrUtil.isNotBlank(tgChatId)) {
             Map<String, Object> map = new HashMap<>(2);
             map.put("chat_id", tgChatId);
             map.put("text", "贴吧签到任务简报\n" + msg);
-            String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
-            log.info("TG推送完毕，推送结果为{}", tgBody);
+            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(y)) {
+                log.info("已开启errorSend开关，将进行错误识别。");
+                if (errorCount > 0) {
+                    log.info("已出现错误，本次将进行推送");
+                    String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
+                    log.info("TG推送完毕，推送结果为{}", tgBody);
+                } else {
+                    log.info("未出现错误，本次不进行推送");
+                }
+            } else {
+                log.info("未开启errorSend开关，不进行错误识别。");
+                String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
+                log.info("TG推送完毕，推送结果为{}", tgBody);
+            }
         }
 
     }
