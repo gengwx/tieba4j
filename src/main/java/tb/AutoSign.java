@@ -10,6 +10,8 @@ import cn.hutool.log.Log;
 import cn.hutool.log.LogFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +25,7 @@ import java.util.stream.Collectors;
 public class AutoSign {
     //推荐创建不可变静态类成员变量
     private static final Log log = LogFactory.get();
-    public static final String LIKIE_URL = "http://c.tieba.baidu.com/c/f/forum/like";
+    public static final String LIKE_URL = "http://c.tieba.baidu.com/c/f/forum/like";
     public static final String TBS_URL = "http://tieba.baidu.com/dc/common/tbs";
     public static final String SIGN_URL = "http://c.tieba.baidu.com/c/c/forum/sign";
     public static final String PUSH_PLUS_URL = "http://www.pushplus.plus/send";
@@ -44,7 +46,9 @@ public class AutoSign {
     public static final String UTF8 = "utf-8";
     public static final String SIGN = "sign";
     public static final String KW = "kw";
+    private static final String ERROR_CODE = "error_code";
     private static final String HAS_MORE = "has_more";
+    private static final String YES = "Y";
 
 
 
@@ -66,30 +70,49 @@ public class AutoSign {
 
 
     public void mainHandler(KeyValueClass kv) {
-        String[] bdusses = System.getenv("BDUSS").split("#");
-
-        if (bdusses.length == 0) {
+        String bdussEnv = System.getenv(BDUSS);
+        if (StrUtil.isBlank(bdussEnv)) {
             log.error("没有设置BDUSS");
             return;
         }
+
+        List<String> bdusses = Arrays.stream(bdussEnv.split("#"))
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toList());
+
+        if (bdusses.isEmpty()) {
+            log.error("BDUSS配置为空");
+            return;
+        }
+
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("本次贴吧自动签到共计").append(bdusses.length).append("个用户。");
-        for (int i = 0; i < bdusses.length; i++) {
-            String tbs = getTbs(bdusses[i]);
-            List<JSONObject> favorite = getFavorite(bdusses[i],"1");
+        int totalErrorCount = 0;
+        stringBuilder.append("本次贴吧自动签到共计").append(bdusses.size()).append("个用户。");
+        for (int i = 0; i < bdusses.size(); i++) {
+            String bduss = bdusses.get(i);
+            String tbs = getTbs(bduss);
+            if (StrUtil.isBlank(tbs)) {
+                totalErrorCount++;
+                stringBuilder.append("第").append(i + 1).append("个用户获取tbs失败，已跳过。")
+                        .append("<hr/>");
+                continue;
+            }
+
+            List<JSONObject> favorite = getFavorite(bduss);
 
             StringBuilder sb = new StringBuilder();
             int successCount = 0;
             int errorCount = 0;
             int signedCount = 0;
             for (JSONObject jsonObject : favorite) {
-                JSONObject signJson = clientSign(tbs, jsonObject.getStr("id"), jsonObject.getStr("name"), bdusses[i]);
-                if (signJson.getStr("error_code").equals(SUCCESS)) {
+                JSONObject signJson = clientSign(tbs, jsonObject.getStr("id"), jsonObject.getStr("name"), bduss);
+                String errorCode = signJson.getStr(ERROR_CODE);
+                if (SUCCESS.equals(errorCode)) {
                     successCount += 1;
-                } else if (signJson.getStr("error_code").equals(ERROR)) {
+                } else if (ERROR.equals(errorCode)) {
                     errorCount += 1;
                     sb.append(jsonObject.getStr("name")).append("、");
-                } else if (signJson.getStr("error_code").equals(SIGNED)) {
+                } else if (SIGNED.equals(errorCode)) {
                     signedCount += 1;
                 } else {
                     errorCount += 1;
@@ -98,22 +121,22 @@ public class AutoSign {
             }
 
             String names = sb.toString();
+            totalErrorCount += errorCount;
             if (errorCount == 0 && StrUtil.isBlank(names)) {
                 stringBuilder.append("第").append(i + 1).append("个用户签到完成，共计").append(favorite.size()).append("个贴吧，成功签到")
                         .append(successCount).append("个吧，已经签过到").append(signedCount).append("个贴吧，签到失败")
                         .append(errorCount).append("个贴吧！")
                         .append("<hr/>");
-            } else if (StrUtil.isNotBlank(names) && errorCount >0) {
+            } else if (StrUtil.isNotBlank(names) && errorCount > 0) {
                 names = names.substring(0, names.lastIndexOf("、"));
                 stringBuilder.append("第").append(i + 1).append("个用户签到完成，共计").append(favorite.size()).append("个贴吧，成功签到")
                         .append(successCount).append("个吧，已经签过到").append(signedCount).append("个贴吧，签到失败")
                         .append(errorCount).append("个贴吧！").append("签到失败名单如下：").append(names)
                         .append("。失败原因可能是该贴吧已经被封禁！")
-                        .append("<hr/>")
-                ;
+                        .append("<hr/>");
             }
-            pushMsg(stringBuilder.toString(),errorCount);
         }
+        pushMsg(stringBuilder.toString(), totalErrorCount);
     }
 
 
@@ -137,7 +160,11 @@ public class AutoSign {
      *
      * @return 收藏列表
      */
-    private static List<JSONObject> getFavorite(String bduss,String pageNoValue) {
+    private static List<JSONObject> getFavorite(String bduss) {
+        return getFavorite(bduss, 1);
+    }
+
+    private static List<JSONObject> getFavorite(String bduss, int pageNoValue) {
         log.info("开始获取关注贴吧");
         JSONObject params = new JSONObject();
         params.set(BDUSS, bduss);
@@ -146,7 +173,7 @@ public class AutoSign {
         params.set("_client_version", "9.7.8.0");
         params.set("_phone_imei", "000000000000000");
         params.set("from", "1008621y");
-        params.set("page_no", pageNoValue);
+        params.set("page_no", String.valueOf(pageNoValue));
         params.set("page_size", "200");
         params.set("model", "MI+5");
         params.set("net_type", "1");
@@ -155,7 +182,7 @@ public class AutoSign {
         encodeData(params);
         try {
 
-            String strBody = UnicodeUtil.toString(HttpRequest.post(LIKIE_URL).form(params)
+            String strBody = UnicodeUtil.toString(HttpRequest.post(LIKE_URL).form(params)
                     .execute().body());
             JSONObject body = new JSONObject(strBody);
             JSONArray nonJsonArray = new JSONArray();
@@ -182,18 +209,17 @@ public class AutoSign {
                     }
                 }
             }
-            if (body.containsKey(HAS_MORE) && body.getStr(HAS_MORE).equals("1")) {
-                pageNoValue += 1;
-                getFavorite(bduss, pageNoValue);
-            }
             processorData(nonJsonArray, finalData);
             processorData(gcoJsonArray, finalData);
+            if ("1".equals(body.getStr(HAS_MORE))) {
+                finalData.addAll(getFavorite(bduss, pageNoValue + 1));
+            }
             log.info("获取关注的贴吧结束");
             return finalData;
         } catch (Exception e) {
             log.error("获取关注的贴吧出错" + e);
         }
-        return null;
+        return Collections.emptyList();
     }
 
     private static void processorData(JSONArray jsonArray, List<JSONObject> finalData) {
@@ -235,7 +261,7 @@ public class AutoSign {
         for (Map.Entry<String, Object> stringObjectEntry : oldData.entrySet()) {
             keys.add(stringObjectEntry.getKey());
         }
-        keys = keys.stream().sorted().collect(Collectors.toList());
+        Collections.sort(keys);
         for (String string : keys) {
             sb.append(string).append(EQUAL).append(oldData.getStr(string));
         }
@@ -266,8 +292,7 @@ public class AutoSign {
     }
 
 
-    private void pushMsg(String msg,int errorCount) {
-        String y = "Y";
+    private void pushMsg(String msg, int errorCount) {
         String pushPlusToken = System.getenv("PUSH_PLUS_TOKEN");
         String tgToken = System.getenv("TG_TOKEN");
         String tgChatId = System.getenv("TG_CHAT_ID");
@@ -277,7 +302,7 @@ public class AutoSign {
             msgObject.set("token", pushPlusToken);
             msgObject.set("title", "百度贴吧自动签到");
             msgObject.set("content", msg);
-            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(y)) {
+            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(YES)) {
                 log.info("已开启errorSend开关，将进行错误识别。");
                 if (errorCount > 0) {
                     log.info("已出现错误，本次将进行推送");
@@ -296,18 +321,18 @@ public class AutoSign {
             Map<String, Object> map = new HashMap<>(2);
             map.put("chat_id", tgChatId);
             map.put("text", "贴吧签到任务简报\n" + msg);
-            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(y)) {
+            if (StrUtil.isNotBlank(errorSend) && errorSend.equalsIgnoreCase(YES)) {
                 log.info("已开启errorSend开关，将进行错误识别。");
                 if (errorCount > 0) {
                     log.info("已出现错误，本次将进行推送");
-                    String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
+                    String tgBody = HttpRequest.post(TG_PUSH_URL + tgToken + "/sendMessage").form(map).execute().body();
                     log.info("TG推送完毕，推送结果为{}", tgBody);
                 } else {
                     log.info("未出现错误，本次不进行推送");
                 }
             } else {
                 log.info("未开启errorSend开关，不进行错误识别。");
-                String tgBody = HttpRequest.post(TG_PUSH_URL+tgToken+"/sendMessage").form(map).execute().body();
+                String tgBody = HttpRequest.post(TG_PUSH_URL + tgToken + "/sendMessage").form(map).execute().body();
                 log.info("TG推送完毕，推送结果为{}", tgBody);
             }
         }
